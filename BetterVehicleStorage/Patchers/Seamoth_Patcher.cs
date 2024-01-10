@@ -1,40 +1,27 @@
-﻿namespace BetterVehicleStorage.Patchers
+﻿namespace BetterVehicleStorage.Patchers;
+
+using HarmonyLib;
+using Managers;
+
+[HarmonyPatch(typeof(SeaMoth))]
+internal class Seamoth_Patcher
 {
-    using Harmony;
-    using Managers;
-
-    [HarmonyPatch(typeof(SeaMoth))]
-    [HarmonyPatch("OnUpgradeModuleChange")]
-    internal class Seamoth_OnUpgradeModuleChange_Patcher
+    [HarmonyPatch(nameof(SeaMoth.OnUpgradeModuleChange)), HarmonyPostfix]
+    internal static void Seamoth_OnUpgradeModuleChange(ref SeaMoth __instance, int slotID, TechType techType, bool added)
     {
-        [HarmonyPostfix]
-        internal static void Postfix(ref SeaMoth __instance, int slotID, TechType techType, bool added)
-        {
-            StorageModuleMgr.UpdateSeamothStorage(ref __instance, slotID, techType, added);
-        }
-    }
-    
-    [HarmonyPatch(typeof(SeaMoth))]
-    [HarmonyPatch("OnUpgradeModuleUse")]
-    internal class Seamoth_OnUpgradeModuleUse_Patcher
-    {
-        [HarmonyPostfix]
-        internal static void Postfix(ref SeaMoth __instance, TechType techType, int slotID)
-        {
-            StorageModuleMgr.OnUpgradeModuleUse(__instance, techType, slotID);
-        }
+        StorageModuleMgr.UpdateSeamothStorage(ref __instance, slotID, techType, added);
     }
 
-    [HarmonyPatch(typeof(SeaMoth))]
-    [HarmonyPatch("IsAllowedToRemove")]
-    internal class SeaMoth_IsAllowedToRemove_Patcher
+    [HarmonyPatch(nameof(SeaMoth.OnUpgradeModuleUse)), HarmonyPostfix]
+    internal static void Seamoth_OnUpgradeModuleUse(ref SeaMoth __instance, TechType techType, int slotID)
     {
-        [HarmonyPrefix]
-        internal static bool Prefix(SeaMoth __instance, Pickupable pickupable, bool verbose, ref bool __result)
-        {
-            __result = StorageModuleMgr.IsAllowedToRemove(__instance, pickupable, verbose);
-            return false;
-        }
+        StorageModuleMgr.OnUpgradeModuleUse(__instance, techType, slotID);
     }
 
+    [HarmonyPatch(nameof(SeaMoth.IsAllowedToRemove)), HarmonyPrefix]
+    internal static bool Seamoth_IsAllowedToRemove(SeaMoth __instance, Pickupable pickupable, bool verbose, ref bool __result)
+    {
+        __result = StorageModuleMgr.IsAllowedToRemove(__instance, pickupable, verbose);
+        return false;
+    }
 }

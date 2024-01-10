@@ -1,261 +1,300 @@
-﻿namespace BetterVehicleStorage.Managers
+﻿namespace BetterVehicleStorage.Managers;
+
+using System;
+using System.Collections.Generic;
+using Nautilus.Crafting;
+using UnityEngine;
+using static CraftData;
+
+public static class StorageModuleMgr
 {
-    using System;
-    using System.Collections;
-    using System.Collections.Generic;
-    using System.Diagnostics;
-    using System.Linq;
-    using System.Reflection;
-    using Items;
-    using UnityEngine;
-    using Utilities;
+    public static readonly IDictionary<TechType, StorageModule> Modules = new Dictionary<TechType, StorageModule>();
 
-    public static class StorageModuleMgr
+    public static readonly IList<string> NeedMappingMethods = new List<string>()
     {
-        public static readonly IDictionary<TechType, StorageModule> Modules = new Dictionary<TechType, StorageModule>();
+        "OnHandClick",
+        "OpenFromExternal",
+        "OpenPDA"
+    };
 
-        public static readonly IList<string> NeedMappingMethods = new List<string>()
-        {
-            "OnHandClick",
-            "OpenFromExternal",
-            "OpenPDA"
-        };
+    public static readonly IList<string> NeedFakeTechTypeMethods = new List<string>()
+    {
+        "RebuildVehicleScreen"
+    };
 
-        public static readonly IList<string> NeedFakeTechTypeMethods = new List<string>()
-        {
-            "RebuildVehicleScreen"
-        };
+    public static Dictionary<string, Vector2> Sizes = new Dictionary<string, Vector2>()
+    {
+        {"StorageModuleMk2", new Vector2(8, 4)},
+        {"StorageModuleMk3", new Vector2(8, 6)},
+        {"StorageModuleMk4", new Vector2(8, 8)},
+        {"StorageModuleMk5", new Vector2(8, 10)}
+    };
 
-        public static void RegisterModules()
-        {
-            var storageModuleMk2TechType = RegisterModule(new StorageModuleMk2());
-            var storageModuleMk3TechType = RegisterModule(new StorageModuleMk3(storageModuleMk2TechType));
-            var storageModuleMk4TechType = RegisterModule(new StorageModuleMk4(storageModuleMk3TechType));
-            RegisterModule(new StorageModuleMk5(storageModuleMk4TechType));
-        }
+    public static Dictionary<string, TechType> SpecialIngredients = new Dictionary<string, TechType>()
+    {
+        {"StorageModuleMk2", TechType.Lithium},
+        {"StorageModuleMk3", TechType.AluminumOxide},
+        {"StorageModuleMk4", TechType.Nickel},
+        {"StorageModuleMk5", TechType.Kyanite}
+    };
 
-        private static TechType RegisterModule(StorageModule storageModule)
-        {
-            storageModule.Patch();
-            Modules.Add(storageModule.TechType, storageModule);
-            return storageModule.TechType;
-        }
+    public static List<string[]> registrationStrings = new List<string[]>()
+    {
+        new string[] {"StorageModuleMk2", "Storage Module Mk2", "An improved storage module with 32 slots."},
+        new string[] {"StorageModuleMk3", "Storage Module Mk3", "An improved storage module with 48 slots."},
+        new string[] {"StorageModuleMk4", "Storage Module Mk4", "An improved storage module with 64 slots."},
+        new string[] {"StorageModuleMk5", "Storage Module Mk5", "An improved storage module with 80 slots."}
+    };
 
-        public static bool IsStorageModule(TechType techType)
+    /// <summary>
+    /// Registers modules mk2 through mk5 to the game.
+    /// </summary>
+    public static void RegisterModules()
+    {
+        TechType lastRegistered = TechType.VehicleStorageModule;
+        foreach (var registrationString in registrationStrings)
         {
-            return techType == TechType.VehicleStorageModule || Modules.ContainsKey(techType);
-        }
+            var size = Sizes[registrationString[0]];
+            var specialIngredient = SpecialIngredients[registrationString[0]];
 
-        public static bool IsTorpedoModule(TechType techType)
-        {
-            return techType == TechType.ExosuitTorpedoArmModule || techType == TechType.SeamothTorpedoModule;
-        }
-
-        public static void UpdateSeamothStorage(ref SeaMoth seaMoth, int slotId, TechType techType, bool added)
-        {
-            var physicalStorageModuleAmount = CalculateStorageModuleAmount(seaMoth.modules);
-            for (int i = 0; i < 4; i++)
+            var recipe = new RecipeData()
             {
-                //Storage activation
-                var enabled = i < physicalStorageModuleAmount;
-                seaMoth.storageInputs[i].SetEnabled(enabled);
-            }
+                craftAmount = 1,
+                Ingredients = new List<Ingredient>
+                {
+                    new Ingredient(lastRegistered, 1),
+                    new Ingredient(TechType.AdvancedWiringKit, 1),
+                    new Ingredient(specialIngredient, 3),
+                    new Ingredient(TechType.AramidFibers, 1)
+                }
+            };
+
+            var module = StorageModule.CreateAndRegister(registrationString[0], registrationString[1], registrationString[2], size, recipe);
+            if (module.TechType == TechType.None) throw new Exception("Failed to register " + registrationString[0] + " module.");
+            lastRegistered = module.TechType;
+            Modules.Add(module.TechType, module);
         }
 
-        public static void UpdateExosuitStorage(ref Exosuit exosuit, int slotId, TechType techType, bool added)
+        foreach (StorageModule storageModule in Modules.Values)
         {
-            if (!IsStorageModule(techType)) return;
-            UpdateExosuitStorageSize(ref exosuit);
+            storageModule.CustomPrefab.Register();
+        }
+    }
+
+    public static bool IsStorageModule(TechType techType)
+    {
+        return techType == TechType.VehicleStorageModule || Modules.ContainsKey(techType);
+    }
+
+    public static bool IsTorpedoModule(TechType techType)
+    {
+        return techType == TechType.ExosuitTorpedoArmModule || techType == TechType.SeamothTorpedoModule;
+    }
+
+    public static void UpdateSeamothStorage(ref SeaMoth seaMoth, int slotId, TechType techType, bool added)
+    {
+        var physicalStorageModuleAmount = CalculateStorageModuleAmount(seaMoth.modules);
+        for (int i = 0; i < 4; i++)
+        {
+            //Storage activation
+            var enabled = i < physicalStorageModuleAmount;
+            seaMoth.storageInputs[i].SetEnabled(enabled);
+        }
+    }
+
+    public static void UpdateExosuitStorage(ref Exosuit exosuit, int slotId, TechType techType, bool added)
+    {
+        if (!IsStorageModule(techType)) return;
+        UpdateExosuitStorageSize(ref exosuit);
+    }
+
+    public static void UpdateExosuitStorageSize(ref Exosuit exosuit)
+    {
+        var allModules = exosuit.GetSlotBinding();
+        TechType storageTechType = TechType.None;
+        for (int i = 0; i < allModules.Length; i++)
+        {
+            if (!IsStorageModule(allModules[i])) continue;
+            storageTechType = allModules[i];
+            break;
         }
 
-        public static void UpdateExosuitStorageSize(ref Exosuit exosuit)
+        if (storageTechType == TechType.None)
         {
-            var allModules = exosuit.GetSlotBinding();
-            TechType storageTechType = TechType.None;
+            exosuit.storageContainer.Resize(4, 4);
+            return;
+        }
+
+        ;
+        var module = Modules.ContainsKey(storageTechType) ? Modules[storageTechType] : null;
+        exosuit.storageContainer.Resize(module?.StorageWidth ?? 6, module?.StorageHeight ?? 4);
+    }
+
+    internal static ItemsContainer GetStorageInSlot(ref Vehicle vehicle, int slotId, TechType techType,
+        string callingMethodName)
+    {
+        var allModules = vehicle.GetSlotBinding();
+        int mappedStorageSlot = slotId;
+        if (NeedMappingMethods.Contains(callingMethodName))
+        {
+            List<int> allStorageModules = new List<int>();
             for (int i = 0; i < allModules.Length; i++)
             {
                 if (!IsStorageModule(allModules[i])) continue;
-                storageTechType = allModules[i];
-                break;
+                allStorageModules.Add(i);
             }
 
-            if (storageTechType == TechType.None)
-            {
-                exosuit.storageContainer.Resize(4, 4);
-                return;
-            }
-
-            ;
-            var module = Modules.ContainsKey(storageTechType) ? Modules[storageTechType] : null;
-            exosuit.storageContainer.Resize(module?.StorageWidth ?? 6, module?.StorageHeight ?? 4);
+            mappedStorageSlot = allStorageModules[slotId];
         }
 
-        internal static ItemsContainer GetStorageInSlot(ref Vehicle vehicle, int slotId, TechType techType,
-            string callingMethodName)
+        InventoryItem inventoryItem = vehicle.GetSlotItem(mappedStorageSlot);
+        return GetItemsContainerFromIventoryItem(inventoryItem, allModules[mappedStorageSlot]);
+    }
+
+    public static void fixOnResize(ref uGUI_ItemsContainer itemsContainer, int width, int height)
+    {
+        if (height == 10)
+            itemsContainer.rectTransform.anchoredPosition =
+                new Vector2(itemsContainer.rectTransform.anchoredPosition.x, -55f);
+    }
+
+    private static ItemsContainer GetItemsContainerFromIventoryItem(InventoryItem inventoryItem, TechType techType)
+    {
+        if (inventoryItem == null) return null;
+        var module = Modules.ContainsKey(techType) ? Modules[techType] : null;
+        Pickupable pickupable = inventoryItem.item;
+        SeamothStorageContainer storageContainer = pickupable.GetComponent<SeamothStorageContainer>();
+        if (storageContainer == null) return null;
+        ItemsContainer itemsContainer = storageContainer.container;
+        itemsContainer.Resize(module?.StorageWidth ?? 4, module?.StorageHeight ?? 4);
+        return itemsContainer;
+    }
+
+    internal static bool IsAllowedToRemove(SeaMoth seaMoth, Pickupable pickupable, bool verbose)
+    {
+        if (!IsStorageModule(pickupable.GetTechType())) return true;
+        SeamothStorageContainer component = pickupable.GetComponent<SeamothStorageContainer>();
+        if (component == null) return true;
+        var flag = component.container.count == 0;
+        if (verbose && !flag)
         {
-            var allModules = vehicle.GetSlotBinding();
-            int mappedStorageSlot = slotId;
-            if (NeedMappingMethods.Contains(callingMethodName))
-            {
-                List<int> allStorageModules = new List<int>();
-                for (int i = 0; i < allModules.Length; i++)
-                {
-                    if (!IsStorageModule(allModules[i])) continue;
-                    allStorageModules.Add(i);
-                }
-
-                mappedStorageSlot = allStorageModules[slotId];
-            }
-
-            InventoryItem inventoryItem = vehicle.GetSlotItem(mappedStorageSlot);
-            return GetItemsContainerFromIventoryItem(inventoryItem, allModules[mappedStorageSlot]);
+            ErrorMessage.AddDebug(Language.main.Get("SeamothStorageNotEmpty"));
         }
 
-        public static void fixOnResize(ref uGUI_ItemsContainer itemsContainer, int width, int height)
+        return flag;
+    }
+
+    internal static bool IsAllowedToRemoveFromExosuit(Exosuit exosuit, Pickupable pickupable, bool verbose)
+    {
+        if (!IsStorageModule(pickupable.GetTechType())) return true;
+        var flag = exosuit.storageContainer.container.count == 0;
+        if (verbose && !flag)
         {
-            if (height == 10)
-                itemsContainer.rectTransform.anchoredPosition =
-                    new Vector2(itemsContainer.rectTransform.anchoredPosition.x, -55f);
+            ErrorMessage.AddDebug("Storage must be empty in order to upgrade it.");
         }
 
-        private static ItemsContainer GetItemsContainerFromIventoryItem(InventoryItem inventoryItem, TechType techType)
+        return flag;
+    }
+
+    internal static bool AllowedToAdd(Equipment equipment, string slot, Pickupable pickupable, bool verbose,
+        ref bool __result)
+    {
+        var isSeaMoth = equipment.owner.GetComponent<SeaMoth>() != null;
+        var isExosuit = equipment.owner.GetComponent<Exosuit>() != null;
+        if (!IsStorageModule(pickupable.GetTechType())) return true;
+        if (isSeaMoth && CalculateStorageModuleAmount(equipment) < 4) return true;
+        if (isExosuit && CalculateStorageModuleAmount(equipment) == 0) return true;
+        __result = false;
+        if (verbose && isSeaMoth)
         {
-            if (inventoryItem == null) return null;
-            var module = Modules.ContainsKey(techType) ? Modules[techType] : null;
-            Pickupable pickupable = inventoryItem.item;
-            SeamothStorageContainer storageContainer = pickupable.GetComponent<SeamothStorageContainer>();
-            if (storageContainer == null) return null;
-            ItemsContainer itemsContainer = storageContainer.container;
-            itemsContainer.Resize(module?.StorageWidth ?? 4, module?.StorageHeight ?? 4);
-            return itemsContainer;
+            ErrorMessage.AddError(
+                "You can only equip up to 4 storage modules.");
+        }
+        else if (verbose && isExosuit)
+        {
+            ErrorMessage.AddError(
+                "You can only equip 1 storage module.");
         }
 
-        internal static bool IsAllowedToRemove(SeaMoth seaMoth, Pickupable pickupable, bool verbose)
-        {
-            if (!IsStorageModule(pickupable.GetTechType())) return true;
-            SeamothStorageContainer component = pickupable.GetComponent<SeamothStorageContainer>();
-            if (component == null) return true;
-            var flag = component.container.count == 0;
-            if (verbose && !flag)
-            {
-                ErrorMessage.AddDebug(Language.main.Get("SeamothStorageNotEmpty"));
-            }
+        return false;
+    }
 
-            return flag;
+    internal static bool GetTechTypeInSlot(Equipment equipment, string slot, ref TechType __result,
+        string callingMethodName)
+    {
+        if (!NeedFakeTechTypeMethods.Contains(callingMethodName)) return true;
+        var isSeaMoth = equipment.owner.GetComponent<SeaMoth>() != null;
+        if (!isSeaMoth) return true;
+        var allModules = equipment.GetEquipment();
+        List<string> slotNames = new List<string>()
+        {
+            "SeamothModule1",
+            "SeamothModule2",
+            "SeamothModule3",
+            "SeamothModule4"
+        };
+        List<string> allStorageModules = new List<string>();
+        while (allModules.MoveNext())
+        {
+            var module = allModules.Current;
+            if (module.Value == null || module.Value.item == null ||
+                !IsStorageModule(module.Value.item.GetTechType())) continue;
+            allStorageModules.Add(module.Key);
         }
 
-        internal static bool IsAllowedToRemoveFromExosuit(Exosuit exosuit, Pickupable pickupable, bool verbose)
+        if (slotNames.IndexOf(slot) >= allStorageModules.Count)
         {
-            if (!IsStorageModule(pickupable.GetTechType())) return true;
-            var flag = exosuit.storageContainer.container.count == 0;
-            if (verbose && !flag)
-            {
-                ErrorMessage.AddDebug("Storage must be empty in order to upgrade it.");
-            }
-
-            return flag;
-        }
-
-        internal static bool AllowedToAdd(Equipment equipment, string slot, Pickupable pickupable, bool verbose,
-            ref bool __result)
-        {
-            var isSeaMoth = equipment.owner.GetComponent<SeaMoth>() != null;
-            var isExosuit = equipment.owner.GetComponent<Exosuit>() != null;
-            if (!IsStorageModule(pickupable.GetTechType())) return true;
-            if (isSeaMoth && CalculateStorageModuleAmount(equipment) < 4) return true;
-            if (isExosuit && CalculateStorageModuleAmount(equipment) == 0) return true;
-            __result = false;
-            if (verbose && isSeaMoth)
-            {
-                ErrorMessage.AddError(
-                    "You can only equip up to 4 storage modules.");
-            }
-            else if (verbose && isExosuit)
-            {
-                ErrorMessage.AddError(
-                    "You can only equip 1 storage module.");
-            }
-
-            return false;
-        }
-
-        internal static bool GetTechTypeInSlot(Equipment equipment, string slot, ref TechType __result,
-            string callingMethodName)
-        {
-            if (!NeedFakeTechTypeMethods.Contains(callingMethodName)) return true;
-            var isSeaMoth = equipment.owner.GetComponent<SeaMoth>() != null;
-            if (!isSeaMoth) return true;
-            var allModules = equipment.GetEquipment();
-            List<string> slotNames = new List<string>()
-            {
-                "SeamothModule1",
-                "SeamothModule2",
-                "SeamothModule3",
-                "SeamothModule4"
-            };
-            List<string> allStorageModules = new List<string>();
-            while (allModules.MoveNext())
-            {
-                var module = allModules.Current;
-                if (module.Value == null || module.Value.item == null ||
-                    !IsStorageModule(module.Value.item.GetTechType())) continue;
-                allStorageModules.Add(module.Key);
-            }
-
-            if (slotNames.IndexOf(slot) >= allStorageModules.Count)
-            {
-                __result = TechType.None;
-                return false;
-            }
-
-            string mappedStorageSlot = allStorageModules[slotNames.IndexOf(slot)];
-            InventoryItem itemInSlot = equipment.GetItemInSlot(mappedStorageSlot);
-            if (itemInSlot == null || itemInSlot.item == null)
-            {
-                __result = TechType.None;
-                return false;
-            }
-
-            Pickupable item = itemInSlot.item;
-            if (IsStorageModule(item.GetTechType()))
-            {
-                __result = TechType.VehicleStorageModule;
-                return false;
-            }
-
             __result = TechType.None;
             return false;
         }
 
-        internal static void OnUpgradeModuleUse(SeaMoth seaMoth, TechType techType, int slotId)
+        string mappedStorageSlot = allStorageModules[slotNames.IndexOf(slot)];
+        InventoryItem itemInSlot = equipment.GetItemInSlot(mappedStorageSlot);
+        if (itemInSlot == null || itemInSlot.item == null)
         {
-            if (!IsStorageModule(techType)) return;
-            var slotItem = seaMoth.GetSlotItem(slotId);
-            var itemsContainer = GetItemsContainerFromIventoryItem(slotItem, techType);
-            PDA pda = Player.main.GetPDA();
-            Inventory.main.SetUsedStorage(itemsContainer);
-            pda.Open(PDATab.Inventory);
+            __result = TechType.None;
+            return false;
         }
 
-        internal static void OnUpgradeModuleUseFromExosuit(Exosuit exosuit, TechType techType, int slotId)
+        Pickupable item = itemInSlot.item;
+        if (IsStorageModule(item.GetTechType()))
         {
-            if (!IsStorageModule(techType)) return;
-            var slotItem = exosuit.GetSlotItem(slotId);
-            var itemsContainer = exosuit.storageContainer.container;
-            PDA pda = Player.main.GetPDA();
-            Inventory.main.SetUsedStorage(itemsContainer);
-            pda.Open(PDATab.Inventory);
+            __result = TechType.VehicleStorageModule;
+            return false;
         }
 
-        private static int CalculateStorageModuleAmount(Equipment equipment)
-        {
-            var amount = equipment.GetCount(TechType.VehicleStorageModule);
-            foreach (var module in Modules.Keys)
-            {
-                amount += equipment.GetCount(module);
-            }
+        __result = TechType.None;
+        return false;
+    }
 
-            return amount;
+    internal static void OnUpgradeModuleUse(SeaMoth seaMoth, TechType techType, int slotId)
+    {
+        if (!IsStorageModule(techType)) return;
+        var slotItem = seaMoth.GetSlotItem(slotId);
+        var itemsContainer = GetItemsContainerFromIventoryItem(slotItem, techType);
+        PDA pda = Player.main.GetPDA();
+        Inventory.main.SetUsedStorage(itemsContainer);
+        pda.Open(PDATab.Inventory);
+    }
+
+    internal static void OnUpgradeModuleUseFromExosuit(Exosuit exosuit, TechType techType, int slotId)
+    {
+        if (!IsStorageModule(techType)) return;
+        var slotItem = exosuit.GetSlotItem(slotId);
+        var itemsContainer = exosuit.storageContainer.container;
+        PDA pda = Player.main.GetPDA();
+        Inventory.main.SetUsedStorage(itemsContainer);
+        pda.Open(PDATab.Inventory);
+    }
+
+    private static int CalculateStorageModuleAmount(Equipment equipment)
+    {
+        var amount = equipment.GetCount(TechType.VehicleStorageModule);
+        foreach (var module in Modules.Keys)
+        {
+            amount += equipment.GetCount(module);
         }
+
+        return amount;
     }
 }
