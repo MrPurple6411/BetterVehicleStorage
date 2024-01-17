@@ -201,19 +201,26 @@ public static class StorageModuleMgr
     {
         var isSeaMoth = equipment.owner.GetComponent<SeaMoth>() != null;
         var isExosuit = equipment.owner.GetComponent<Exosuit>() != null;
+        var isOtherVehicle = equipment.owner.GetComponent<Vehicle>() != null;
+
         if (!IsStorageModule(pickupable.GetTechType())) return true;
         if (isSeaMoth && CalculateStorageModuleAmount(equipment) < 4) return true;
         if (isExosuit && CalculateStorageModuleAmount(equipment) == 0) return true;
+        if (isOtherVehicle && CalculateStorageModuleAmount(equipment) < 4) return true;
         __result = false;
-        if (verbose && isSeaMoth)
+
+        if (verbose)
         {
-            ErrorMessage.AddError(
-                "You can only equip up to 4 storage modules.");
-        }
-        else if (verbose && isExosuit)
-        {
-            ErrorMessage.AddError(
-                "You can only equip 1 storage module.");
+            if (isSeaMoth || isOtherVehicle)
+            {
+                ErrorMessage.AddError(
+                                       "You can only equip up to 4 storage modules.");
+            }
+            else if (isExosuit)
+            {
+                ErrorMessage.AddError(
+                                       "You can only equip 1 storage module.");
+            }
         }
 
         return false;
@@ -223,8 +230,8 @@ public static class StorageModuleMgr
         string callingMethodName)
     {
         if (!NeedFakeTechTypeMethods.Contains(callingMethodName)) return true;
-        var isSeaMoth = equipment.owner.GetComponent<SeaMoth>() != null;
-        if (!isSeaMoth) return true;
+        var isExosuit = equipment.owner.GetComponent<Exosuit>() != null;
+        if (isExosuit) return true;
         var allModules = equipment.GetEquipment();
         List<string> slotNames = new List<string>()
         {
@@ -267,10 +274,10 @@ public static class StorageModuleMgr
         return false;
     }
 
-    internal static void OnUpgradeModuleUse(SeaMoth seaMoth, TechType techType, int slotId)
+    internal static void OnUpgradeModuleUse(Vehicle vehicle, TechType techType, int slotId)
     {
         if (!IsStorageModule(techType)) return;
-        var slotItem = seaMoth.GetSlotItem(slotId);
+        var slotItem = vehicle.GetSlotItem(slotId);
         var itemsContainer = GetItemsContainerFromIventoryItem(slotItem, techType);
         PDA pda = Player.main.GetPDA();
         Inventory.main.SetUsedStorage(itemsContainer);

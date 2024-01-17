@@ -1,6 +1,7 @@
 ﻿namespace BetterVehicleStorage.Patchers;
 
 using System.Diagnostics;
+using Common;
 using HarmonyLib;
 using Managers;
 
@@ -10,7 +11,7 @@ public class Equipment_Patcher
     [HarmonyPatch(nameof(Equipment.AllowedToAdd)), HarmonyPrefix]
     internal static bool Prefix(Equipment __instance, string slot, Pickupable pickupable, bool verbose,
         ref bool __result)
-    {
+    { 
         return StorageModuleMgr.AllowedToAdd(__instance, slot, pickupable, verbose, ref __result);
     }
 

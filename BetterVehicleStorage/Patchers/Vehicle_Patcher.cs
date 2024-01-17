@@ -1,6 +1,7 @@
 ﻿namespace BetterVehicleStorage.Patchers;
 
 using System.Diagnostics;
+using Common;
 using HarmonyLib;
 using Managers;
 
@@ -11,7 +12,13 @@ internal class Vehicle_Patcher
     internal static void Vehicle_OnUpgradeModuleUse(ref Vehicle __instance, TechType techType, int slotID)
     {
         if (__instance is Exosuit exosuit)
-        StorageModuleMgr.OnUpgradeModuleUseFromExosuit(exosuit, techType, slotID);
+        {
+            StorageModuleMgr.OnUpgradeModuleUseFromExosuit(exosuit, techType, slotID);
+        }
+        else if (__instance is not SeaMoth)
+        {
+            StorageModuleMgr.OnUpgradeModuleUse(__instance, techType, slotID);
+        }
     }
 
     [HarmonyPatch(nameof(Vehicle.GetStorageInSlot)), HarmonyPrefix]

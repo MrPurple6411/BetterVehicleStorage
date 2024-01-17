@@ -1,5 +1,6 @@
 ﻿namespace BetterVehicleStorage;
 
+using Common;
 using Nautilus.Assets;
 using Nautilus.Assets.Gadgets;
 using Nautilus.Assets.PrefabTemplates;
@@ -11,8 +12,8 @@ using UnityEngine;
 
 public class StorageModule
 {
-    public readonly int StorageWidth = 4;
-    public readonly int StorageHeight = 4;
+    public readonly int StorageWidth;
+    public readonly int StorageHeight;
 
     public CustomPrefab CustomPrefab { get; private set; }
     public TechType TechType => CustomPrefab?.Info.TechType ?? TechType.None;
@@ -33,7 +34,7 @@ public class StorageModule
             prefabInfo.WithIcon(ImageUtils.LoadSpriteFromFile(iconPath));
         else
         {
-            Main.Logger.LogInfo($"No icon found for {classId}, using default icon");
+            QuickLogger.Info($"No icon found for {classId}, using default icon");
             prefabInfo.WithIcon(SpriteManager.Get(TechType.VehicleStorageModule));
         }
         

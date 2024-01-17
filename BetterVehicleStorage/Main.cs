@@ -3,7 +3,7 @@
 using System.IO;
 using System.Reflection;
 using BepInEx;
-using BepInEx.Logging;
+using Common;
 using HarmonyLib;
 using Managers;
 using Nautilus.Handlers;
@@ -14,20 +14,11 @@ using Nautilus.Handlers;
 public class Main: BaseUnityPlugin
 {
     internal const string WorkBenchTab = "Storage";
-    internal static new ManualLogSource Logger { get; private set; }
     internal static string AssetsFolder { get; } = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Assets");
 
     public void Awake()
     {
-        if (Main.Logger != null)
-        {
-            Logger.LogError("Only one instance of this plugin can be active at a time");
-            Destroy(this);
-            return;
-        }
-
-        Main.Logger = base.Logger;
-        Logger.LogInfo("Started patching v" + MyPluginInfo.PLUGIN_VERSION);
+        QuickLogger.Info("Started patching v" + MyPluginInfo.PLUGIN_VERSION);
 
         CraftTreeHandler.AddTabNode(
             CraftTree.Type.Workbench,
@@ -41,6 +32,6 @@ public class Main: BaseUnityPlugin
 
         Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), MyPluginInfo.PLUGIN_GUID);
 
-        Logger.LogInfo("Finished patching");
+        QuickLogger.Info("Finished patching");
     }
 }

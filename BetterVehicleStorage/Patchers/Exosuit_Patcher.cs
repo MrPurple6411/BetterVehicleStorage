@@ -1,5 +1,6 @@
 ﻿namespace BetterVehicleStorage.Patchers;
 
+using Common;
 using HarmonyLib;
 using Managers;
 
