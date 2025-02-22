@@ -21,7 +21,7 @@ public class Main: BaseUnityPlugin
     internal const string WorkBenchTab = "Storage";
     internal static string AssetsFolder { get; } = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "Assets");
 
-    public void Awake()
+    private void Awake()
     {
         QuickLogger.Info("Started patching v" + MyPluginInfo.PLUGIN_VERSION);
 
